@@ -1,0 +1,97 @@
+# Running Fooocus AI Image Generation on AWS
+
+Are you interested in using AI image generation tools but find that online solutions are too restricted and produce mediocre results? Perhaps you'd like to try tools like stable diffusion and Fooocus on your own machine, but your budget doesn't allow for a fancy graphics card. The solution? Run it on the cloud for pennies an hour! For typical use cases, this will be orders of magnitude cheaper than purchasing your own GPU. At the time of writing this, the setup documented in this guide should cost roughly $0.22/hour of runtime. Let's get started!
+
+## AWS Basics
+
+Running Fooocus on AWS requires access to cloud VMs with GPUs. If you have any AWS credits, they can be applied towards instances with GPUs. Otherwise, we'll need to set up a payment method to our account. If you haven't already done so, you can proceed with the following steps until prompted to do so.
+
+Let's start by navigating to [aws.amazon.com](https://aws.amazon.com/) and proceeding to the AWS Management Console. Then select the EC2 service.
+
+## VM Settings
+
+We'll create a VM with the following specifications:
+
+- **GPU type:** NVIDIA T4
+- **Number of GPUs:** 1
+- **Instance Type:** g4dn.xlarge (or any instance with ≥4 vCPUs and ≥16 GB memory)
+- Use spot instances to reduce costs nearly in half
+- A minimum of 50GB of hard disk space (if planning to use more than 1 model, add 10GB per model; note: storage space cannot be increased later)
+- Use the Deep Learning AMI with Conda for Python 3.x (Ubuntu 20.04)
+- Create and start the Virtual Machine
+
+## Setting Up the VM
+
+Once we create and launch our VM, we can connect to it using AWS's provided SSH feature in the browser. If you selected the Deep Learning AMI in the previous step, our machine will automatically come with the required GPU drivers and CUDA setup.
+
+If you did not select the Deep Learning AMI in the previous step, you will have to manually install the GPU drivers and CUDA toolkit. This can take some time, but I have included the details below for how to do this.
+
+### Installing GPU Drivers
+
+Ubuntu may not come with the necessary drivers to use the GPU. If that is the case, you will need to install them with the following commands:
+
+```bash
+curl https://raw.githubusercontent.com/NVIDIA/nvidia-docker/master/instructions/ubuntu18.04.sh | bash
+```
+
+### Building Python 3.10 From Source
+
+Fooocus, like other AI and ML programs that run on Python, is picky about which Python versions they work with. At the time of writing this, the Fooocus documentation states that it has been tested to work on Python 3.10. Therefore, for the purposes of this guide, we will be using Python 3.10 to run Fooocus. However, since Python 3.10 has been deprecated, we will need to build it from source manually.
+
+To start, install the tools and libraries to compile Python.
+
+```bash
+sudo apt update
+sudo apt install git gcc make zlib1g-dev libssl-dev libffi-dev libbz2-dev liblzma-dev
+```
+
+Clone, build, and install Python 3.10 (this may take a while).
+
+```bash
+cd ~/
+wget https://www.python.org/ftp/python/3.10.12/Python-3.10.12.tgz
+tar -xvzf Python-3.10.12.tgz
+cd Python-3.10.12/
+./configure --enable-optimizations
+make
+sudo make install
+```
+
+## Setting Up Fooocus
+
+We can use the command below to clone the Fooocus repository, create a Python virtual environment using Python 3.10, and install the required packages. (This may take a while)
+
+```bash
+cd ~/
+git clone https://github.com/lllyasviel/Fooocus.git
+cd Fooocus
+python3.10 -m venv fooocus_env
+source fooocus_env/bin/activate
+pip install -r requirements_versions.txt
+```
+
+## Running Fooocus
+
+If you have just completed the previous step, you should already be using the Python 3.10 virtual environment that you created. However, if you have restarted your virtual machine or shell session, you will need to run the following commands before running Fooocus to reactivate your Python virtual environment.
+
+```bash
+cd ~/Fooocus
+source fooocus_env/bin/activate
+```
+
+We can now launch the Fooocus server using the command below. Note that we have included the `--share` flag, which allows us to connect to the webUI externally. Fooocus will connect to a proxy server and provide you with a link that allows you to access the Fooocus UI from any machine via the web browser.
+
+```bash
+
+
+python entry_with_update.py --share
+```
+
+Optionally, if you would like a more private connection to your instance, you can install a private VPN software such as OpenVPN and then use the `--listen` flag when launching Fooocus to allow LAN connections. VPN software such as OpenVPN enables devices on your virtual network to communicate more similarly to if they were on the same physical network, allowing you to connect to your machine in the browser without a publicly exposed proxy link.
+
+```bash
+python entry_with_update.py --listen
+```
+
+Assuming that OpenVPN is configured correctly on both the AWS VM and your personal machine, you should be able to access the Fooocus web UI from your personal machine by navigating to `http://<vm-public-ip>:7865`
+```
